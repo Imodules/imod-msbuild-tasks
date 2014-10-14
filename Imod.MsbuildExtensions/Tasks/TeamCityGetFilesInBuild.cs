@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Xml;
-using Imod.MsbuildExtensions.Helpers;
+using Imod.MsbuildExtensions.Contracts.TeamCity;
 using Microsoft.Build.Utilities;
 using Microsoft.Build.Framework;
+using RestSharp;
 
 namespace Imod.MsbuildExtensions.Tasks
 {
@@ -37,27 +37,9 @@ namespace Imod.MsbuildExtensions.Tasks
 
 		#region Private
 
-		private RestXml TcRest
-		{
-			get
-			{
-				if (_TcRest == null)
-				{
-					_TcRest = RestXml.Create();
-				}
-				return _TcRest;
-			}
-		}
-		private RestXml _TcRest = null;
-
-		private string TeamCityRestUrl
-		{
-			get { return string.Format("{0}{1}", TeamCityUrl, TeamCityRest); }
-		}
-
 		private string TeamCityChangesUrl
 		{
-			get { return string.Format("{0}/changes?build=id:{1}", TeamCityRestUrl, TeamCityBuildNumber); }
+			get { return string.Format("{0}/changes?build=id:{1}", TeamCityRest, TeamCityBuildNumber); }
 		}
 		#endregion
 
@@ -75,11 +57,9 @@ namespace Imod.MsbuildExtensions.Tasks
 			{
 				// Get our change sets from TeamCity.
 				Log.LogMessage("Calling TeamCity to get changes: [{0}]", TeamCityChangesUrl);
-				var changesetDoc = TcRest.Get(TeamCityChangesUrl);
-				// Get our changeset ID's from the XML.
-				var changesets = GetChangesets(changesetDoc);
+				var changes = GetChanges();
 				// Get our files from the changesets.
-				FilesInBuild = GetFilesInBuild(changesets);
+				FilesInBuild = GetFilesInBuild(changes);
 			}
 			catch (Exception ex)
 			{
@@ -95,44 +75,69 @@ namespace Imod.MsbuildExtensions.Tasks
 
 		#region TeamCity Methods
 		/// <summary>
-		/// Traverses the XML Document to get the changeset reference URL's.
-		/// </summary>
-		/// <param name="changesetDoc"></param>
-		/// <returns></returns>
-		private List<string> GetChangesets(XmlDocument changesetDoc)
-		{
-			var idList = new List<string>();
-			var changeNodes = changesetDoc.DocumentElement.SelectNodes("/changes/change");
-			foreach (XmlNode change in changeNodes)
-			{
-				string changeHref = (change as XmlElement).GetAttribute("href");
-				idList.Add(changeHref);
-			}
-			return idList;
-		}
-
-		/// <summary>
 		/// Gets the files from each changeset.
 		/// </summary>
-		/// <param name="changesets"></param>
+		/// <param name="changes"></param>
 		/// <returns></returns>
-		private string[] GetFilesInBuild(List<string> changesets)
+		private string[] GetFilesInBuild(TcChanges changes)
 		{
 			var files = new List<string>();
-			foreach (string href in changesets)
+			if (changes.change == null)
 			{
-				Log.LogMessage("Getting files for changeset: [{0}]", href);
-				var changeDoc = TcRest.Get(string.Format("{0}{1}", TeamCityUrl, href));
-				var changeFiles = changeDoc.DocumentElement.SelectNodes("/change/files/file");
-				foreach (XmlNode file in changeFiles)
+				return files.ToArray();
+			}
+
+			foreach (TcChange change in changes.change)
+			{
+				Log.LogMessage("Getting files for changeset: [{0}]", change.href);
+				var changeDetail = GetChangeDetail(change);
+
+				foreach (TcFile file in changeDetail.files.file)
 				{
-					string filePath = (file as XmlElement).GetAttribute("file");
-					Log.LogMessage("Got file: [{0}]", filePath);
-					files.Add(filePath);
+					Log.LogMessage("Got file: [{0}]", file.file);
+					files.Add(file.file);
 				}
 			}
 
 			return files.ToArray();
+		}
+		#endregion
+
+		#region Rest Methods
+
+		/// <summary>
+		/// Gets the changesets in this build.
+		/// </summary>
+		/// <returns></returns>
+		private TcChanges GetChanges()
+		{
+			var client = new RestClient(TeamCityUrl);
+
+			var request = new RestRequest(TeamCityChangesUrl, Method.GET);
+			request.AddHeader("Content-Type", "application/json");
+			request.AddHeader("Accept", "application/json");
+
+			var response = client.Execute<TcChanges>(request);
+
+			return response.Data;
+		}
+
+		/// <summary>
+		/// Gets the file list for each change.
+		/// </summary>
+		/// <param name="change"></param>
+		/// <returns></returns>
+		private TcChange GetChangeDetail(TcChange change)
+		{
+			var client = new RestClient(TeamCityUrl);
+
+			var request = new RestRequest(change.href, Method.GET);
+			request.AddHeader("Content-Type", "application/json");
+			request.AddHeader("Accept", "application/json");
+
+			var response = client.Execute<TcChange>(request);
+
+			return response.Data;
 		}
 		#endregion
 

@@ -34,8 +34,15 @@
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Tasks.v4.0" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>packages\Newtonsoft.Json.6.0.5\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="RestSharp">
+      <HintPath>packages\RestSharp.104.4.0\lib\net4\RestSharp.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -43,9 +50,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Helpers\RestXml.cs" />
+    <Compile Include="Tasks\EdgeCastClearCache.cs" />
+    <Compile Include="Contracts\TeamCity\TcChange.cs" />
+    <Compile Include="Contracts\TeamCity\TcChanges.cs" />
+    <Compile Include="Contracts\TeamCity\TcFile.cs" />
+    <Compile Include="Contracts\TeamCity\TcFiles.cs" />
+    <Compile Include="Contracts\EdgeCast\PurgeRequest.cs" />
+    <Compile Include="Contracts\EdgeCast\PurgeResponse.cs" />
     <Compile Include="Tasks\TeamCityGetFilesInBuild.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Helpers\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
